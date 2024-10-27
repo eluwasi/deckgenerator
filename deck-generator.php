@@ -228,11 +228,11 @@ function sdg_render_admin_page() {
 // Add this new function
 function sdg_render_settings_page() {
     if (isset($_POST['sdg_settings_nonce']) && wp_verify_nonce($_POST['sdg_settings_nonce'], 'sdg_save_settings')) {
-        update_option('sdg_openai_api_key', sanitize_text_field($_POST['openai_api_key']));
+        update_option('sdg_claude_api_key', sanitize_text_field($_POST['claude_api_key']));
         echo '<div class="notice notice-success"><p>Settings saved successfully!</p></div>';
     }
     
-    $api_key = get_option('sdg_openai_api_key');
+    $api_key = get_option('sdg_claude_api_key');
     ?>
     <div class="wrap">
         <h1>Deck Generator Settings</h1>
@@ -240,10 +240,10 @@ function sdg_render_settings_page() {
             <?php wp_nonce_field('sdg_save_settings', 'sdg_settings_nonce'); ?>
             <table class="form-table">
                 <tr>
-                    <th scope="row">OpenAI API Key</th>
+                    <th scope="row">Claude API Key</th>
                     <td>
-                        <input type="password" name="openai_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text">
-                        <p class="description">Enter your OpenAI API key to enable AI-powered analysis</p>
+                        <input type="password" name="claude_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text">
+                        <p class="description">Enter your Anthropic Claude API key to enable AI-powered analysis</p>
                     </td>
                 </tr>
             </table>
