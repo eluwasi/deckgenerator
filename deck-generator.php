@@ -3,7 +3,7 @@
 Plugin Name: Deck Generator
 Plugin URI: https://glennorah.co.uk
 Description: Generates investment decks from your WooCommerce data
-Version: 1.0.2  // Increment this from 1.0.1
+Version: 1.0.3  // Increment this from 1.0.1
 Author: Your Name
 Requires at least: 5.8
 Requires PHP: 7.2
