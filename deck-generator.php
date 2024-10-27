@@ -18,12 +18,15 @@ require 'plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 $myUpdateChecker = PucFactory::buildUpdateChecker(
-    'https://github.com/YourUsername/deck-generator/', // Replace with your actual GitHub repository URL
+    'https://github.com/eluwasi/deckgenerator/', // Replace with your EXACT GitHub username and repository name
     __FILE__,
     'deck-generator'
 );
 
-// Set to use releases instead of tags
+// Set the branch that contains the stable release.
+$myUpdateChecker->setBranch('main'); // or 'master' depending on your default branch name
+
+// Optional: If you're using GitHub releases (recommended)
 $myUpdateChecker->getVcsApi()->enableReleaseAssets();
 
 // Add menu item
@@ -162,62 +165,109 @@ function sdg_get_average_order_value() {
 // Admin page
 function sdg_render_admin_page() {
     ?>
-    <div class="wrap">
-        <h1>Deck Generator</h1>
+    <div class="wrap deck-generator-dashboard">
+        <h1>Deck Generator Dashboard</h1>
         
-        <div class="deck-generator-grid">
-            <!-- Data Collection Section -->
-            <div class="card">
-                <h2>Store Data</h2>
-                <p>Click the button below to gather your store's data.</p>
-                <button id="generate-deck" class="button button-primary">
-                    Collect Store Data
-                </button>
-                <div id="store-data" class="data-display"></div>
+        <div class="metrics-grid">
+            <!-- Key Performance Metrics -->
+            <div class="card metrics-overview">
+                <h2>Key Business Metrics</h2>
+                <div class="metrics-container">
+                    <div class="metric">
+                        <span class="metric-title">Revenue (30 Days)</span>
+                        <span class="metric-value" id="revenue-30"></span>
+                        <span class="metric-trend" id="revenue-trend"></span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-title">MRR Growth</span>
+                        <span class="metric-value" id="mrr-growth"></span>
+                        <span class="metric-trend" id="mrr-trend"></span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-title">Customer LTV</span>
+                        <span class="metric-value" id="customer-ltv"></span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-title">CAC</span>
+                        <span class="metric-value" id="customer-cac"></span>
+                    </div>
+                </div>
             </div>
-            
-            <!-- Deck Generation Options -->
-            <div class="card">
-                <h2>Generate Deck</h2>
-                <form id="deck-options-form">
-                    <select name="deck_type" id="deck_type" class="regular-text">
-                        <option value="investment">Investment Deck</option>
-                        <option value="sales">Sales Deck</option>
-                        <option value="overview">Business Overview</option>
-                    </select>
-                    
-                    <h3>Include Sections:</h3>
-                    <label>
-                        <input type="checkbox" name="sections[]" value="executive_summary" checked> 
-                        Executive Summary
-                    </label>
-                    <label>
-                        <input type="checkbox" name="sections[]" value="market_analysis" checked> 
-                        Market Analysis
-                    </label>
-                    <label>
-                        <input type="checkbox" name="sections[]" value="financials" checked> 
-                        Financial Overview
-                    </label>
-                    <label>
-                        <input type="checkbox" name="sections[]" value="projections" checked> 
-                        Growth Projections
-                    </label>
-                    
-                    <button id="create-deck" class="button button-primary">
-                        Generate Deck
-                    </button>
-                </form>
-                <div id="generation-status"></div>
+
+            <!-- Growth Metrics -->
+            <div class="card growth-metrics">
+                <h2>Growth Indicators</h2>
+                <div class="metrics-container">
+                    <div class="metric">
+                        <span class="metric-title">YoY Growth</span>
+                        <span class="metric-value" id="yoy-growth"></span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-title">Customer Growth</span>
+                        <span class="metric-value" id="customer-growth"></span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-title">Market Share</span>
+                        <span class="metric-value" id="market-share"></span>
+                    </div>
+                </div>
+                <div id="growth-chart"></div>
             </div>
-            
-            <!-- Preview Section -->
-            <div class="card full-width">
-                <h2>Deck Preview</h2>
-                <div id="deck-preview"></div>
-                <div class="deck-actions">
-                    <button id="download-pdf" class="button button-secondary">Download PDF</button>
-                    <button id="download-pptx" class="button button-secondary">Download PowerPoint</button>
+
+            <!-- Market Analysis -->
+            <div class="card market-analysis">
+                <h2>Market Analysis</h2>
+                <div id="market-insights"></div>
+            </div>
+
+            <!-- Customer Insights -->
+            <div class="card customer-insights">
+                <h2>Customer Insights</h2>
+                <div class="metrics-container">
+                    <div class="metric">
+                        <span class="metric-title">Repeat Purchase Rate</span>
+                        <span class="metric-value" id="repeat-rate"></span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-title">Average Order Value</span>
+                        <span class="metric-value" id="aov"></span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-title">Customer Satisfaction</span>
+                        <span class="metric-value" id="csat"></span>
+                    </div>
+                </div>
+                <div id="customer-segments-chart"></div>
+            </div>
+
+            <!-- Competitive Analysis -->
+            <div class="card competitive-analysis">
+                <h2>Competitive Edge</h2>
+                <div id="competitive-insights"></div>
+            </div>
+
+            <!-- Investment Highlights -->
+            <div class="card investment-highlights">
+                <h2>Investment Highlights</h2>
+                <div id="key-highlights"></div>
+            </div>
+        </div>
+
+        <!-- AI Analysis Section -->
+        <div class="ai-analysis-section">
+            <h2>AI-Powered Investment Analysis</h2>
+            <div class="analysis-grid">
+                <div class="card market-opportunity">
+                    <h3>Market Opportunity</h3>
+                    <div id="market-opportunity-analysis"></div>
+                </div>
+                <div class="card growth-strategy">
+                    <h3>Growth Strategy</h3>
+                    <div id="growth-strategy-analysis"></div>
+                </div>
+                <div class="card risk-assessment">
+                    <h3>Risk Assessment</h3>
+                    <div id="risk-analysis"></div>
                 </div>
             </div>
         </div>
@@ -278,3 +328,4 @@ function sdg_generate_deck() {
     }
 }
 add_action('wp_ajax_generate_deck', 'sdg_generate_deck');
+
