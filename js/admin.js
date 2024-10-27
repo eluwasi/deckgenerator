@@ -121,4 +121,49 @@ jQuery(document).ready(function($) {
         
         $('#store-data').html(html);
     }
+
+    // Function to load all dashboard data
+    function loadDashboardData() {
+        $.ajax({
+            url: deckGenerator.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'get_dashboard_metrics',
+                nonce: deckGenerator.nonce
+            },
+            success: function(response) {
+                if (response.success) {
+                    updateDashboard(response.data);
+                } else {
+                    alert('Error loading dashboard data: ' + response.data);
+                }
+            }
+        });
+    }
+
+    // Function to update dashboard with data
+    function updateDashboard(data) {
+        // Update Key Business Metrics
+        $('#revenue-30').text('$' + data.financial.revenue_30_days);
+        $('#mrr-growth').text(data.financial.mrr_growth + '%');
+        $('#customer-ltv').text('$' + data.financial.customer_ltv);
+        $('#customer-cac').text('$' + data.financial.cac);
+
+        // Update Growth Indicators
+        $('#yoy-growth').text(data.growth.yoy + '%');
+        $('#customer-growth').text(data.growth.customer_growth + '%');
+        $('#market-share').text(data.growth.market_share + '%');
+
+        // Update Customer Insights
+        $('#repeat-rate').text(data.customer.repeat_rate + '%');
+        $('#aov').text('$' + data.customer.avg_order_value);
+        
+        // Update Analysis Sections
+        $('#market-insights').html(data.analysis.market_insights);
+        $('#competitive-insights').html(data.analysis.competitive_insights);
+        $('#key-highlights').html(data.analysis.key_highlights);
+    }
+
+    // Load data when page loads
+    loadDashboardData();
 });

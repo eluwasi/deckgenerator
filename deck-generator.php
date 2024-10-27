@@ -329,3 +329,242 @@ function sdg_generate_deck() {
 }
 add_action('wp_ajax_generate_deck', 'sdg_generate_deck');
 
+function sdg_get_dashboard_metrics() {
+    check_ajax_referer('deck_generator_nonce', 'nonce');
+    
+    try {
+        global $wpdb;
+
+        // Financial Metrics
+        $financial = array(
+            'revenue_30_days' => sdg_get_revenue_period(30),
+            'mrr_growth' => sdg_calculate_mrr_growth(),
+            'customer_ltv' => sdg_calculate_customer_ltv(),
+            'cac' => sdg_calculate_cac()
+        );
+
+        // Growth Metrics
+        $growth = array(
+            'yoy' => sdg_calculate_yoy_growth(),
+            'customer_growth' => sdg_calculate_customer_growth(),
+            'market_share' => sdg_estimate_market_share()
+        );
+
+        // Customer Metrics
+        $customer = array(
+            'repeat_rate' => sdg_get_repeat_purchase_rate(),
+            'avg_order_value' => sdg_get_average_order_value(),
+            'satisfaction' => sdg_get_customer_satisfaction()
+        );
+
+        wp_send_json_success(array(
+            'financial' => $financial,
+            'growth' => $growth,
+            'customer' => $customer
+        ));
+    } catch (Exception $e) {
+        wp_send_json_error($e->getMessage());
+    }
+}
+add_action('wp_ajax_get_dashboard_metrics', 'sdg_get_dashboard_metrics');
+
+// Helper functions for calculations
+function sdg_get_revenue_period($days) {
+    global $wpdb;
+    
+    $revenue = $wpdb->get_var($wpdb->prepare("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE pm.meta_key = '_order_total'
+        AND p.post_type = 'shop_order'
+        AND p.post_status IN ('wc-completed', 'wc-processing')
+        AND p.post_date >= DATE_SUB(NOW(), INTERVAL %d DAY)
+    ", $days));
+    
+    return number_format((float)$revenue, 2, '.', '');
+}
+
+function sdg_calculate_mrr_growth() {
+    global $wpdb;
+    
+    // Current month revenue
+    $current_month = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE pm.meta_key = '_order_total'
+        AND p.post_type = 'shop_order'
+        AND p.post_status IN ('wc-completed', 'wc-processing')
+        AND MONTH(p.post_date) = MONTH(CURRENT_DATE())
+        AND YEAR(p.post_date) = YEAR(CURRENT_DATE())
+    ");
+
+    // Previous month revenue
+    $prev_month = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE pm.meta_key = '_order_total'
+        AND p.post_type = 'shop_order'
+        AND p.post_status IN ('wc-completed', 'wc-processing')
+        AND MONTH(p.post_date) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
+        AND YEAR(p.post_date) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
+    ");
+
+    if (!$prev_month) return 0;
+    return number_format((($current_month - $prev_month) / $prev_month) * 100, 2);
+}
+
+function sdg_calculate_customer_ltv() {
+    global $wpdb;
+    
+    $ltv = $wpdb->get_var("
+        SELECT AVG(customer_total) as ltv
+        FROM (
+            SELECT customer_id, SUM(meta_value) as customer_total
+            FROM {$wpdb->posts} p
+            JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+            WHERE p.post_type = 'shop_order'
+            AND p.post_status IN ('wc-completed', 'wc-processing')
+            AND pm.meta_key = '_order_total'
+            GROUP BY customer_id
+        ) as customer_totals
+    ");
+
+    return number_format((float)$ltv, 2, '.', '');
+}
+
+function sdg_get_repeat_purchase_rate() {
+    global $wpdb;
+    
+    $total_customers = $wpdb->get_var("
+        SELECT COUNT(DISTINCT customer_id)
+        FROM {$wpdb->posts}
+        WHERE post_type = 'shop_order'
+        AND post_status IN ('wc-completed', 'wc-processing')
+    ");
+
+    $repeat_customers = $wpdb->get_var("
+        SELECT COUNT(DISTINCT customer_id)
+        FROM (
+            SELECT customer_id
+            FROM {$wpdb->posts}
+            WHERE post_type = 'shop_order'
+            AND post_status IN ('wc-completed', 'wc-processing')
+            GROUP BY customer_id
+        ) as customer_totals
+    ");
+
+    if (!$total_customers) return 0;
+    return number_format((($repeat_customers / $total_customers) * 100), 2);
+}
+
+function sdg_calculate_yoy_growth() {
+    global $wpdb;
+    
+    // Current year revenue
+    $current_year = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE pm.meta_key = '_order_total'
+        AND p.post_type = 'shop_order'
+        AND p.post_status IN ('wc-completed', 'wc-processing')
+        AND YEAR(p.post_date) = YEAR(CURRENT_DATE())
+    ");
+
+    // Previous year revenue
+    $prev_year = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE pm.meta_key = '_order_total'
+        AND p.post_type = 'shop_order'
+        AND p.post_status IN ('wc-completed', 'wc-processing')
+        AND YEAR(p.post_date) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR))
+    ");
+
+    if (!$prev_year) return 0;
+    return number_format((($current_year - $prev_year) / $prev_year) * 100, 2);
+}
+
+function sdg_calculate_customer_growth() {
+    global $wpdb;
+    
+    // Current year customers
+    $current_year = $wpdb->get_var("
+        SELECT COUNT(DISTINCT customer_id)
+        FROM {$wpdb->posts}
+        WHERE post_type = 'shop_order'
+        AND post_status IN ('wc-completed', 'wc-processing')
+        AND YEAR(p.post_date) = YEAR(CURRENT_DATE())
+    ");
+
+    // Previous year customers
+    $prev_year = $wpdb->get_var("
+        SELECT COUNT(DISTINCT customer_id)
+        FROM {$wpdb->posts}
+        WHERE post_type = 'shop_order'
+        AND post_status IN ('wc-completed', 'wc-processing')
+        AND YEAR(p.post_date) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR))
+    ");
+
+    if (!$prev_year) return 0;
+    return number_format((($current_year - $prev_year) / $prev_year) * 100, 2);
+}
+
+function sdg_estimate_market_share() {
+    global $wpdb;
+    
+    // Total revenue
+    $total_revenue = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE pm.meta_key = '_order_total'
+        AND p.post_type = 'shop_order'
+        AND p.post_status IN ('wc-completed', 'wc-processing')
+    ");
+
+    // Total revenue of the store
+    $store_revenue = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE pm.meta_key = '_order_total'
+        AND p.post_type = 'shop_order'
+        AND p.post_status IN ('wc-completed', 'wc-processing')
+        AND p.post_author = " . get_current_user_id() . "
+    ");
+
+    if (!$total_revenue) return 0;
+    return number_format((($store_revenue / $total_revenue) * 100), 2);
+}
+
+function sdg_get_customer_satisfaction() {
+    global $wpdb;
+    
+    // Total reviews
+    $total_reviews = $wpdb->get_var("
+        SELECT COUNT(*)
+        FROM {$wpdb->comments} c
+        JOIN {$wpdb->posts} p ON c.comment_post_ID = p.ID
+        WHERE c.comment_type = 'review'
+        AND p.post_type = 'product'
+    ");
+
+    // Total positive reviews
+    $positive_reviews = $wpdb->get_var("
+        SELECT COUNT(*)
+        FROM {$wpdb->comments} c
+        JOIN {$wpdb->posts} p ON c.comment_post_ID = p.ID
+        WHERE c.comment_type = 'review'
+        AND p.post_type = 'product'
+        AND c.comment_approved = '1'
+        AND c.comment_content LIKE '%positive%'
+    ");
+
+    if (!$total_reviews) return 0;
+    return number_format((($positive_reviews / $total_reviews) * 100), 2);
+}
