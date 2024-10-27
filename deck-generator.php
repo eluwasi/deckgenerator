@@ -3,7 +3,7 @@
 Plugin Name: Deck Generator
 Plugin URI: https://glennorah.co.uk
 Description: Generates investment decks from your WooCommerce data
-Version: 1.0.3  // Increment this from 1.0.1
+Version: 1.0.4  // Increment this from 1.0.1
 Author: Your Name
 Requires at least: 5.8
 Requires PHP: 7.2
@@ -18,15 +18,15 @@ require 'plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 $myUpdateChecker = PucFactory::buildUpdateChecker(
-    'https://github.com/eluwasi/deckgenerator/', // Replace with your EXACT GitHub username and repository name
+    'https://github.com/eluwasi/deckgenerator', // Remove trailing slash
     __FILE__,
     'deck-generator'
 );
 
-// Set the branch that contains the stable release.
-$myUpdateChecker->setBranch('main'); // or 'master' depending on your default branch name
+// Set the branch that contains the stable release
+$myUpdateChecker->setBranch('main'); // Make sure this matches your default branch name
 
-// Optional: If you're using GitHub releases (recommended)
+// Enable GitHub releases mode
 $myUpdateChecker->getVcsApi()->enableReleaseAssets();
 
 // Add menu item
@@ -58,6 +58,15 @@ function sdg_enqueue_admin_scripts($hook) {
         return;
     }
     
+    // Add Chart.js
+    wp_enqueue_script(
+        'chartjs',
+        'https://cdn.jsdelivr.net/npm/chart.js',
+        array(),
+        '4.4.1',
+        true
+    );
+
     // Add CSS
     wp_enqueue_style(
         'deck-generator-admin',
@@ -70,7 +79,7 @@ function sdg_enqueue_admin_scripts($hook) {
     wp_enqueue_script(
         'deck-generator-admin',
         plugins_url('js/admin.js', __FILE__),
-        array('jquery'),
+        array('jquery', 'chartjs'),
         '1.0.1',
         true
     );
@@ -271,6 +280,30 @@ function sdg_render_admin_page() {
                 </div>
             </div>
         </div>
+
+        <!-- Revenue Trends Chart -->
+        <div class="card chart-card">
+            <h2>Revenue Trends</h2>
+            <canvas id="revenueChart"></canvas>
+        </div>
+
+        <!-- Customer Growth Chart -->
+        <div class="card chart-card">
+            <h2>Customer Growth</h2>
+            <canvas id="customerChart"></canvas>
+        </div>
+
+        <!-- Product Performance Chart -->
+        <div class="card chart-card">
+            <h2>Top Products</h2>
+            <canvas id="productsChart"></canvas>
+        </div>
+
+        <!-- Customer Segments Chart -->
+        <div class="card chart-card">
+            <h2>Customer Segments</h2>
+            <canvas id="segmentsChart"></canvas>
+        </div>
     </div>
     <?php
 }
@@ -329,46 +362,98 @@ function sdg_generate_deck() {
 }
 add_action('wp_ajax_generate_deck', 'sdg_generate_deck');
 
+/**
+ * AJAX handler for dashboard metrics
+ */
 function sdg_get_dashboard_metrics() {
-    check_ajax_referer('deck_generator_nonce', 'nonce');
-    
     try {
+        // Verify nonce and capabilities
+        check_ajax_referer('deck_generator_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            throw new Exception('Unauthorized access');
+        }
+
+        // Initialize WooCommerce check
+        if (!class_exists('WooCommerce')) {
+            throw new Exception('WooCommerce is not active');
+        }
+
         global $wpdb;
 
-        // Financial Metrics
-        $financial = array(
-            'revenue_30_days' => sdg_get_revenue_period(30),
-            'mrr_growth' => sdg_calculate_mrr_growth(),
-            'customer_ltv' => sdg_calculate_customer_ltv(),
-            'cac' => sdg_calculate_cac()
+        // Collect all metrics
+        $metrics = array(
+            'financial' => sdg_get_financial_metrics(),
+            'growth' => sdg_get_growth_metrics(),
+            'customer' => sdg_get_customer_metrics(),
+            'analysis' => sdg_get_analysis_metrics()
         );
 
-        // Growth Metrics
-        $growth = array(
-            'yoy' => sdg_calculate_yoy_growth(),
-            'customer_growth' => sdg_calculate_customer_growth(),
-            'market_share' => sdg_estimate_market_share()
-        );
+        wp_send_json_success($metrics);
 
-        // Customer Metrics
-        $customer = array(
-            'repeat_rate' => sdg_get_repeat_purchase_rate(),
-            'avg_order_value' => sdg_get_average_order_value(),
-            'satisfaction' => sdg_get_customer_satisfaction()
-        );
-
-        wp_send_json_success(array(
-            'financial' => $financial,
-            'growth' => $growth,
-            'customer' => $customer
-        ));
     } catch (Exception $e) {
+        error_log('Deck Generator Error: ' . $e->getMessage());
         wp_send_json_error($e->getMessage());
     }
 }
 add_action('wp_ajax_get_dashboard_metrics', 'sdg_get_dashboard_metrics');
 
-// Helper functions for calculations
+/**
+ * Get financial metrics
+ */
+function sdg_get_financial_metrics() {
+    global $wpdb;
+    
+    return array(
+        'revenue_30_days' => sdg_get_revenue_period(30),
+        'mrr_growth' => sdg_calculate_mrr_growth(),
+        'customer_ltv' => sdg_calculate_customer_ltv(),
+        'cac' => sdg_calculate_cac()
+    );
+}
+
+/**
+ * Get growth metrics
+ */
+function sdg_get_growth_metrics() {
+    return array(
+        'yoy' => sdg_calculate_yoy_growth(),
+        'customer_growth' => sdg_calculate_customer_growth(),
+        'market_share' => sdg_estimate_market_share()
+    );
+}
+
+/**
+ * Get customer metrics
+ */
+function sdg_get_customer_metrics() {
+    return array(
+        'repeat_rate' => sdg_get_repeat_purchase_rate(),
+        'avg_order_value' => sdg_get_average_order_value(),
+        'satisfaction' => sdg_get_customer_satisfaction()
+    );
+}
+
+/**
+ * Get analysis metrics
+ */
+function sdg_get_analysis_metrics() {
+    // Initialize AI analyzer if API key exists
+    $api_key = get_option('sdg_claude_api_key');
+    if (!empty($api_key)) {
+        $analyzer = new SDG_AI_Analyzer();
+        return $analyzer->generate_insights(sdg_get_store_data());
+    }
+    
+    return array(
+        'market_insights' => 'AI analysis not available. Please configure API key.',
+        'competitive_insights' => '',
+        'key_highlights' => ''
+    );
+}
+
+/**
+ * Calculate revenue for a specific period
+ */
 function sdg_get_revenue_period($days) {
     global $wpdb;
     
@@ -568,3 +653,55 @@ function sdg_get_customer_satisfaction() {
     if (!$total_reviews) return 0;
     return number_format((($positive_reviews / $total_reviews) * 100), 2);
 }
+
+/**
+ * Debug logging function
+ */
+function sdg_log($message, $data = null) {
+    if (WP_DEBUG) {
+        error_log('Deck Generator: ' . $message . 
+            ($data ? ' Data: ' . print_r($data, true) : ''));
+    }
+}
+
+function sdg_get_chart_data() {
+    return array(
+        'revenue_trends' => sdg_get_revenue_trends(),
+        'customer_growth' => sdg_get_customer_growth_data(),
+        'top_products' => sdg_get_top_products(),
+        'customer_segments' => sdg_get_customer_segments()
+    );
+}
+
+function sdg_get_revenue_trends() {
+    global $wpdb;
+    
+    $results = $wpdb->get_results("
+        SELECT 
+            DATE_FORMAT(p.post_date, '%Y-%m') as month,
+            SUM(pm.meta_value) as revenue
+        FROM {$wpdb->posts} p
+        JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+        WHERE p.post_type = 'shop_order'
+        AND p.post_status IN ('wc-completed', 'wc-processing')
+        AND pm.meta_key = '_order_total'
+        AND p.post_date >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY month
+        ORDER BY month ASC
+    ");
+
+    $labels = array();
+    $values = array();
+    
+    foreach ($results as $row) {
+        $labels[] = date('M Y', strtotime($row->month));
+        $values[] = round((float)$row->revenue, 2);
+    }
+
+    return array(
+        'labels' => $labels,
+        'values' => $values
+    );
+}
+
+// Add other data collection functions...
