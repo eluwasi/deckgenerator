@@ -1,13 +1,12 @@
 <?php
-/*
-Plugin Name: Deck Generator
-Plugin URI: https://glennorah.co.uk
-Description: Generates investment decks from your WooCommerce data
-Version: 1.0.5  // Increment this from 1.0.1
-Author: Your Name
-Requires at least: 5.8
-Requires PHP: 7.2
-*/
+/**
+ * Plugin Name: Deck Generator
+ * Description: Generates store data overview for WooCommerce
+ * Version: 1.1.0
+ * Author: Your Name
+ * Text Domain: deck-generator
+ * Requires WooCommerce: 3.0
+ */
 
 if (!defined('ABSPATH')) {
     exit;
@@ -66,7 +65,7 @@ function sdg_enqueue_admin_scripts($hook) {
         'deck-generator-admin',
         plugins_url('js/admin.js', __FILE__),
         array('jquery'),
-        '1.0.2',
+        '1.1.0',
         true
     );
 
@@ -204,69 +203,30 @@ function sdg_get_total_revenue() {
  */
 function sdg_render_admin_page() {
     ?>
-    <div class="wrap deck-generator-dashboard">
-        <div class="dashboard-header">
-            <h1>Deck Generator</h1>
-            <div class="actions">
-                <button id="debug-toggle" class="button button-secondary">
-                    <span class="dashicons dashicons-code-standards"></span>
-                    Debug
-                </button>
-                <button id="collect-data" class="button button-primary">
-                    <span class="dashicons dashicons-update"></span>
-                    Collect Store Data
-                </button>
-            </div>
+    <div class="wrap">
+        <h1>Deck Generator</h1>
+        
+        <!-- Debug Section -->
+        <div class="debug-section">
+            <button id="debug-toggle" class="button">Toggle Debug</button>
+            <div id="debug-output" style="display: none;"></div>
         </div>
 
-        <!-- Debug Output -->
-        <div id="debug-output" class="debug-panel" style="display: none;"></div>
+        <!-- Data Collection Section -->
+        <div class="card">
+            <h2>Store Data</h2>
+            <p>Click the button below to gather your store's data.</p>
+            <button id="collect-data" class="button button-primary">
+                Collect Store Data
+            </button>
+        </div>
 
-        <!-- Error Messages -->
-        <div id="error-message" style="display: none;"></div>
+        <!-- Error Container -->
+        <div id="error-message" class="notice notice-error" style="display: none;">
+        </div>
 
-        <!-- Main Dashboard Grid -->
-        <div class="dashboard-grid">
-            <!-- KPI Cards -->
-            <div class="metrics-section">
-                <h2>Key Metrics</h2>
-                <div class="metrics-grid">
-                    <div class="metric-card revenue">
-                        <span class="metric-icon">💰</span>
-                        <h3>Revenue (30d)</h3>
-                        <div id="revenue-30" class="metric-value">$0.00</div>
-                    </div>
-                    <div class="metric-card customers">
-                        <span class="metric-icon">👥</span>
-                        <h3>Total Customers</h3>
-                        <div id="total-customers" class="metric-value">0</div>
-                    </div>
-                    <div class="metric-card orders">
-                        <span class="metric-icon">📦</span>
-                        <h3>Avg Order Value</h3>
-                        <div id="avg-order" class="metric-value">$0.00</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts Grid -->
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>Revenue Trends</h3>
-                    <canvas id="revenueChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Customer Growth</h3>
-                    <canvas id="customerChart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Product Performance</h3>
-                    <canvas id="productsChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Detailed Stats -->
-            <div id="store-data" class="detailed-stats" style="display: none;"></div>
+        <!-- Results Container -->
+        <div id="store-data" class="data-display" style="display: none;">
         </div>
     </div>
     <?php
