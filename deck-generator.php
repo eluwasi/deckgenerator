@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Deck Generator
  * Description: Generates store data overview for WooCommerce
- * Version: 1.1.0
+ * Version: 1.1.3
  * Author: Your Name
  * Text Domain: deck-generator
  * Requires WooCommerce: 3.0
@@ -65,7 +65,7 @@ function sdg_enqueue_admin_scripts($hook) {
         'deck-generator-admin',
         plugins_url('js/admin.js', __FILE__),
         array('jquery'),
-        '1.1.0',
+        '1.1.2',
         true
     );
 
