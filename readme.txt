@@ -3,7 +3,7 @@ Contributors: eluwasi labs
 Tags: woocommerce, analytics, store data
 Requires at least: 5.0
 Tested up to: 6.4.3
-Stable tag: 1.1.3
+Stable tag: 1.1.5
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -15,6 +15,18 @@ Generate comprehensive store data overviews for WooCommerce.
 Deck Generator provides a simple way to collect and display key WooCommerce store metrics.
 
 == Changelog ==
+
+= 1.1.5 =
+* Enhanced UI with modern, professional styling
+* Improved metric card layouts
+* Added responsive design improvements
+* Updated AI insights styling
+* Refined typography and spacing
+
+= 1.1.4 =
+* Updated button styling to black theme
+* Enhanced visual consistency
+* Improved UI elements
 
 = 1.1.3 =
 * Testing automatic updates
@@ -49,5 +61,5 @@ Deck Generator provides a simple way to collect and display key WooCommerce stor
 
 == Upgrade Notice ==
 
-= 1.1.3 =
+= 1.1.5 =
 This version fixes critical data collection issues and improves overall stability. Upgrade recommended.

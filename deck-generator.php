@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Deck Generator
  * Description: Generates store data overview for WooCommerce
- * Version: 1.1.3
- * Author: Your Name
+ * Version: 1.1.5
+ * Author: Eluwasi
  * Text Domain: deck-generator
  * Requires WooCommerce: 3.0
  */
@@ -473,5 +473,127 @@ function sdg_get_products_chart_data() {
         'labels' => $labels,
         'values' => $values
     );
+}
+
+function sdg_get_store_analytics() {
+    try {
+        // Basic metrics we already have
+        $total_products = sdg_get_product_count();
+        $total_customers = sdg_get_customer_count();
+        $avg_order = sdg_get_average_order();
+
+        // New analytics calculations
+        $revenue_data = sdg_get_revenue_analytics();
+        $customer_data = sdg_get_customer_analytics();
+        $product_data = sdg_get_product_analytics();
+
+        // Compile analysis data
+        $data = array(
+            'store_name' => get_bloginfo('name'),
+            'store_url' => get_site_url(),
+            'products' => array(
+                'total' => $total_products,
+                'categories' => sdg_get_product_categories(),
+                'stock_status' => $product_data['stock_status'],
+                'price_range' => $product_data['price_range'],
+                'top_performers' => $product_data['top_performers']
+            ),
+            'customers' => array(
+                'total' => $total_customers,
+                'growth_rate' => $customer_data['growth_rate'],
+                'repeat_rate' => $customer_data['repeat_rate'],
+                'avg_lifetime_value' => $customer_data['lifetime_value']
+            ),
+            'revenue' => array(
+                'total' => $revenue_data['total'],
+                'average_order' => $avg_order,
+                'growth_mom' => $revenue_data['growth_mom'],
+                'projected_monthly' => $revenue_data['projected']
+            ),
+            'insights' => sdg_generate_ai_insights($data)
+        );
+
+        return $data;
+
+    } catch (Exception $e) {
+        error_log('Deck Generator Analytics Error: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function sdg_get_revenue_analytics() {
+    global $wpdb;
+    
+    // Get current month revenue
+    $current_month = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE meta_key = '_order_total'
+        AND post_type = 'shop_order'
+        AND post_status IN ('wc-completed', 'wc-processing')
+        AND MONTH(post_date) = MONTH(CURRENT_DATE())
+    ");
+
+    // Get last month revenue
+    $last_month = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE meta_key = '_order_total'
+        AND post_type = 'shop_order'
+        AND post_status IN ('wc-completed', 'wc-processing')
+        AND MONTH(post_date) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
+    ");
+
+    // Calculate month-over-month growth
+    $growth_mom = $last_month > 0 ? 
+        (($current_month - $last_month) / $last_month) * 100 : 0;
+
+    return array(
+        'total' => number_format((float)$current_month, 2, '.', ''),
+        'growth_mom' => round($growth_mom, 1),
+        'projected' => number_format((float)$current_month * 1.1, 2, '.', '') // Simple projection
+    );
+}
+
+function sdg_generate_ai_insights($data) {
+    $insights = array();
+    
+    // Revenue Insights
+    if ($data['revenue']['growth_mom'] > 0) {
+        $insights[] = array(
+            'type' => 'positive',
+            'metric' => 'Revenue',
+            'message' => "Your revenue is growing! You've seen a {$data['revenue']['growth_mom']}% increase compared to last month. Keep up the great work!"
+        );
+    } else {
+        $insights[] = array(
+            'type' => 'action',
+            'metric' => 'Revenue',
+            'message' => "Revenue has decreased by " . abs($data['revenue']['growth_mom']) . "% compared to last month. Consider running a promotional campaign or reviewing your pricing strategy."
+        );
+    }
+
+    // Product Insights
+    $low_stock = $data['products']['stock_status']['low'];
+    if ($low_stock > 0) {
+        $insights[] = array(
+            'type' => 'warning',
+            'metric' => 'Inventory',
+            'message' => "You have {$low_stock} products with low stock. Consider restocking soon to maintain sales momentum."
+        );
+    }
+
+    // Customer Insights
+    if ($data['customers']['repeat_rate'] > 30) {
+        $insights[] = array(
+            'type' => 'positive',
+            'metric' => 'Customer Loyalty',
+            'message' => "Great customer loyalty! {$data['customers']['repeat_rate']}% of your customers make repeat purchases. Your retention strategy is working well."
+        );
+    }
+
+    return $insights;
 }
 
