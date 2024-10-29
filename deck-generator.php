@@ -17,15 +17,15 @@ require 'plugin-update-checker/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 $myUpdateChecker = PucFactory::buildUpdateChecker(
-    'https://github.com/eluwasi/deckgenerator', // Remove trailing slash
+    'https://github.com/eluwasi/deckgenerator', // Your GitHub repository
     __FILE__,
     'deck-generator'
 );
 
 // Set the branch that contains the stable release
-$myUpdateChecker->setBranch('main'); // Make  ure this matches your default branch name
+$myUpdateChecker->setBranch('main');
 
-// Enable GitHub releases mode
+// Enable GitHub releases
 $myUpdateChecker->getVcsApi()->enableReleaseAssets();
 
 // Add menu item
