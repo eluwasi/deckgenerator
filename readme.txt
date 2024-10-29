@@ -1,26 +1,38 @@
 === Deck Generator ===
-Contributors: yourname
-Tags: woocommerce, deck generator
-Requires at least: 5.8
-Tested up to: 6.6
-Requires PHP: 7.2
-Stable tag: 1.0.0
+Contributors: eluwasi labs
+Tags: woocommerce, analytics, store data
+Requires at least: 5.0
+Tested up to: 6.4.3
+Stable tag: 1.1.0
+Requires PHP: 7.4
 License: GPLv2 or later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-A simple plugin to generate investment decks from WooCommerce data.
+Generate comprehensive store data overviews for WooCommerce.
 
 == Description ==
-This plugin helps generate investment decks from your WooCommerce store data.
 
-== Installation ==
-1. Upload the plugin files to the `/wp-content/plugins/deck-generator` directory, or install the plugin through the WordPress plugins screen directly.
-2. Activate the plugin through the 'Plugins' screen in WordPress
-3. Use the Deck Generator menu item to access the plugin
+Deck Generator provides a simple way to collect and display key WooCommerce store metrics.
 
 == Changelog ==
+
+= 1.1.0 =
+* Fixed data collection functionality
+* Improved error handling and debugging
+* Streamlined UI for better usability
+* Added detailed product category display
+* Enhanced data accuracy for store metrics
+
 = 1.0.1 =
-* Added data collection features
-* Added styling improvements
+* Initial beta release
+* Basic store data collection
+* Product category overview
 
 = 1.0.0 =
-* Initial release
+* Plugin scaffolding
+* Initial development version
+
+== Upgrade Notice ==
+
+= 1.1.0 =
+This version fixes critical data collection issues and improves overall stability. Upgrade recommended.

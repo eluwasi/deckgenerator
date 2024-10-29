@@ -24,7 +24,7 @@ $myUpdateChecker = PucFactory::buildUpdateChecker(
 );
 
 // Set the branch that contains the stable release
-$myUpdateChecker->setBranch('main'); // Make sure this matches your default branch name
+$myUpdateChecker->setBranch('main'); // Make  ure this matches your default branch name
 
 // Enable GitHub releases mode
 $myUpdateChecker->getVcsApi()->enableReleaseAssets();
@@ -58,106 +58,81 @@ function sdg_enqueue_admin_scripts($hook) {
         return;
     }
     
-    // Add Chart.js
-    wp_enqueue_script(
-        'chartjs',
-        'https://cdn.jsdelivr.net/npm/chart.js',
-        array(),
-        '4.4.1',
-        true
-    );
-
-    // Add CSS
-    wp_enqueue_style(
-        'deck-generator-admin',
-        plugins_url('css/admin.css', __FILE__),
-        array(),
-        '1.0.1'
-    );
+    // Enqueue jQuery first
+    wp_enqueue_script('jquery');
     
-    // Add JavaScript
+    // Then your script
     wp_enqueue_script(
         'deck-generator-admin',
         plugins_url('js/admin.js', __FILE__),
-        array('jquery', 'chartjs'),
-        '1.0.1',
+        array('jquery'),
+        '1.0.2',
         true
     );
 
-    wp_localize_script('deck-generator-admin', 'deckGenerator', array(
-        'ajax_url' => admin_url('admin-ajax.php'),
-        'nonce' => wp_create_nonce('deck_generator_nonce')
-    ));
+    wp_localize_script(
+        'deck-generator-admin',
+        'deckGenerator',
+        array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('deck_generator_nonce')
+        )
+    );
 }
 add_action('admin_enqueue_scripts', 'sdg_enqueue_admin_scripts');
 
-// AJAX handler
-function sdg_get_store_data() {
-    check_ajax_referer('deck_generator_nonce', 'nonce');
-    
-    try {
-        if (!class_exists('WooCommerce')) {
-            throw new Exception('WooCommerce is not active');
-        }
+/**
+ * Helper functions for WooCommerce data
+ */
 
-        $data = array(
-            'store_info' => array(
-                'name' => get_bloginfo('name'),
-                'url' => get_site_url(),
-                'established' => get_option('woocommerce_store_address', 'Not set')
-            ),
-            'products' => array(
-                'total' => wp_count_posts('product')->publish
-            ),
-            'revenue' => array(
-                'total' => sdg_get_total_revenue(),
-                'average_order' => sdg_get_average_order_value()
-            ),
-            'customers' => array(
-                'total' => count(get_users(array('role' => 'customer')))
-            )
-        );
-
-        // Get categories
-        $categories = get_terms(array(
-            'taxonomy' => 'product_cat',
-            'hide_empty' => true
-        ));
-
-        if (!is_wp_error($categories)) {
-            $data['products']['categories'] = array_map(function($cat) {
-                return array(
-                    'name' => $cat->name,
-                    'count' => $cat->count
-                );
-            }, $categories);
-        }
-
-        wp_send_json_success($data);
-    } catch (Exception $e) {
-        wp_send_json_error($e->getMessage());
+function sdg_get_product_count() {
+    if (!class_exists('WooCommerce')) {
+        return 0;
     }
-}
-add_action('wp_ajax_get_store_data', 'sdg_get_store_data');
-
-// Helper Functions
-function sdg_get_total_revenue() {
-    global $wpdb;
     
-    $revenue = $wpdb->get_var("
-        SELECT SUM(meta_value)
-        FROM {$wpdb->postmeta} pm
-        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
-        WHERE pm.meta_key = '_order_total'
-        AND p.post_type = 'shop_order'
-        AND p.post_status IN ('wc-completed', 'wc-processing')
-    ");
-    
-    return $revenue ? number_format((float)$revenue, 2, '.', '') : '0.00';
+    $products = wc_get_products(array(
+        'limit' => -1,
+        'status' => 'publish'
+    ));
+    return count($products);
 }
 
-function sdg_get_average_order_value() {
+function sdg_get_product_categories() {
+    if (!class_exists('WooCommerce')) {
+        return array();
+    }
+    
+    $categories = get_terms(array(
+        'taxonomy' => 'product_cat',
+        'hide_empty' => true
+    ));
+    
+    if (is_wp_error($categories)) {
+        error_log('Deck Generator Error: ' . $categories->get_error_message());
+        return array();
+    }
+
+    return array_map(function($cat) {
+        return array(
+            'name' => $cat->name,
+            'count' => $cat->count
+        );
+    }, $categories);
+}
+
+function sdg_get_customer_count() {
+    if (!class_exists('WooCommerce')) {
+        return 0;
+    }
+    return count(get_users(array('role' => 'customer')));
+}
+
+function sdg_get_average_order() {
     global $wpdb;
+    
+    if (!class_exists('WooCommerce')) {
+        return '0.00';
+    }
     
     $avg = $wpdb->get_var("
         SELECT AVG(meta_value)
@@ -171,166 +146,128 @@ function sdg_get_average_order_value() {
     return $avg ? number_format((float)$avg, 2, '.', '') : '0.00';
 }
 
-// Admin page
+/**
+ * AJAX handler for store data
+ */
+function sdg_get_store_data() {
+    try {
+        check_ajax_referer('deck_generator_nonce', 'nonce');
+        
+        if (!class_exists('WooCommerce')) {
+            throw new Exception('WooCommerce is not active');
+        }
+
+        $data = array(
+            'store_name' => get_bloginfo('name'),
+            'store_url' => get_site_url(),
+            'products' => array(
+                'total' => sdg_get_product_count(),
+                'categories' => sdg_get_product_categories()
+            ),
+            'customers' => array(
+                'total' => sdg_get_customer_count()
+            ),
+            'revenue' => array(
+                'total' => sdg_get_total_revenue(),
+                'average_order' => sdg_get_average_order()
+            )
+        );
+
+        wp_send_json_success($data);
+
+    } catch (Exception $e) {
+        error_log('Deck Generator Error: ' . $e->getMessage());
+        wp_send_json_error($e->getMessage());
+    }
+}
+add_action('wp_ajax_get_store_data', 'sdg_get_store_data');
+
+// Add this helper function
+function sdg_get_total_revenue() {
+    global $wpdb;
+    
+    $total = $wpdb->get_var("
+        SELECT SUM(meta_value)
+        FROM {$wpdb->postmeta} pm
+        JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+        WHERE meta_key = '_order_total'
+        AND post_type = 'shop_order'
+        AND post_status IN ('wc-completed', 'wc-processing')
+        AND post_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+    ");
+    
+    return number_format((float)$total, 2, '.', '');
+}
+
+/**
+ * Admin page render function
+ */
 function sdg_render_admin_page() {
     ?>
     <div class="wrap deck-generator-dashboard">
-        <h1>Deck Generator Dashboard</h1>
-        
-        <div class="metrics-grid">
-            <!-- Key Performance Metrics -->
-            <div class="card metrics-overview">
-                <h2>Key Business Metrics</h2>
-                <div class="metrics-container">
-                    <div class="metric">
-                        <span class="metric-title">Revenue (30 Days)</span>
-                        <span class="metric-value" id="revenue-30"></span>
-                        <span class="metric-trend" id="revenue-trend"></span>
+        <div class="dashboard-header">
+            <h1>Deck Generator</h1>
+            <div class="actions">
+                <button id="debug-toggle" class="button button-secondary">
+                    <span class="dashicons dashicons-code-standards"></span>
+                    Debug
+                </button>
+                <button id="collect-data" class="button button-primary">
+                    <span class="dashicons dashicons-update"></span>
+                    Collect Store Data
+                </button>
+            </div>
+        </div>
+
+        <!-- Debug Output -->
+        <div id="debug-output" class="debug-panel" style="display: none;"></div>
+
+        <!-- Error Messages -->
+        <div id="error-message" style="display: none;"></div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- KPI Cards -->
+            <div class="metrics-section">
+                <h2>Key Metrics</h2>
+                <div class="metrics-grid">
+                    <div class="metric-card revenue">
+                        <span class="metric-icon">💰</span>
+                        <h3>Revenue (30d)</h3>
+                        <div id="revenue-30" class="metric-value">$0.00</div>
                     </div>
-                    <div class="metric">
-                        <span class="metric-title">MRR Growth</span>
-                        <span class="metric-value" id="mrr-growth"></span>
-                        <span class="metric-trend" id="mrr-trend"></span>
+                    <div class="metric-card customers">
+                        <span class="metric-icon">👥</span>
+                        <h3>Total Customers</h3>
+                        <div id="total-customers" class="metric-value">0</div>
                     </div>
-                    <div class="metric">
-                        <span class="metric-title">Customer LTV</span>
-                        <span class="metric-value" id="customer-ltv"></span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-title">CAC</span>
-                        <span class="metric-value" id="customer-cac"></span>
+                    <div class="metric-card orders">
+                        <span class="metric-icon">📦</span>
+                        <h3>Avg Order Value</h3>
+                        <div id="avg-order" class="metric-value">$0.00</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Growth Metrics -->
-            <div class="card growth-metrics">
-                <h2>Growth Indicators</h2>
-                <div class="metrics-container">
-                    <div class="metric">
-                        <span class="metric-title">YoY Growth</span>
-                        <span class="metric-value" id="yoy-growth"></span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-title">Customer Growth</span>
-                        <span class="metric-value" id="customer-growth"></span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-title">Market Share</span>
-                        <span class="metric-value" id="market-share"></span>
-                    </div>
+            <!-- Charts Grid -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Revenue Trends</h3>
+                    <canvas id="revenueChart"></canvas>
                 </div>
-                <div id="growth-chart"></div>
-            </div>
-
-            <!-- Market Analysis -->
-            <div class="card market-analysis">
-                <h2>Market Analysis</h2>
-                <div id="market-insights"></div>
-            </div>
-
-            <!-- Customer Insights -->
-            <div class="card customer-insights">
-                <h2>Customer Insights</h2>
-                <div class="metrics-container">
-                    <div class="metric">
-                        <span class="metric-title">Repeat Purchase Rate</span>
-                        <span class="metric-value" id="repeat-rate"></span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-title">Average Order Value</span>
-                        <span class="metric-value" id="aov"></span>
-                    </div>
-                    <div class="metric">
-                        <span class="metric-title">Customer Satisfaction</span>
-                        <span class="metric-value" id="csat"></span>
-                    </div>
+                <div class="chart-card">
+                    <h3>Customer Growth</h3>
+                    <canvas id="customerChart"></canvas>
                 </div>
-                <div id="customer-segments-chart"></div>
-            </div>
-
-            <!-- Competitive Analysis -->
-            <div class="card competitive-analysis">
-                <h2>Competitive Edge</h2>
-                <div id="competitive-insights"></div>
-            </div>
-
-            <!-- Investment Highlights -->
-            <div class="card investment-highlights">
-                <h2>Investment Highlights</h2>
-                <div id="key-highlights"></div>
-            </div>
-        </div>
-
-        <!-- AI Analysis Section -->
-        <div class="ai-analysis-section">
-            <h2>AI-Powered Investment Analysis</h2>
-            <div class="analysis-grid">
-                <div class="card market-opportunity">
-                    <h3>Market Opportunity</h3>
-                    <div id="market-opportunity-analysis"></div>
-                </div>
-                <div class="card growth-strategy">
-                    <h3>Growth Strategy</h3>
-                    <div id="growth-strategy-analysis"></div>
-                </div>
-                <div class="card risk-assessment">
-                    <h3>Risk Assessment</h3>
-                    <div id="risk-analysis"></div>
+                <div class="chart-card">
+                    <h3>Product Performance</h3>
+                    <canvas id="productsChart"></canvas>
                 </div>
             </div>
+
+            <!-- Detailed Stats -->
+            <div id="store-data" class="detailed-stats" style="display: none;"></div>
         </div>
-
-        <!-- Revenue Trends Chart -->
-        <div class="card chart-card">
-            <h2>Revenue Trends</h2>
-            <canvas id="revenueChart"></canvas>
-        </div>
-
-        <!-- Customer Growth Chart -->
-        <div class="card chart-card">
-            <h2>Customer Growth</h2>
-            <canvas id="customerChart"></canvas>
-        </div>
-
-        <!-- Product Performance Chart -->
-        <div class="card chart-card">
-            <h2>Top Products</h2>
-            <canvas id="productsChart"></canvas>
-        </div>
-
-        <!-- Customer Segments Chart -->
-        <div class="card chart-card">
-            <h2>Customer Segments</h2>
-            <canvas id="segmentsChart"></canvas>
-        </div>
-
-        <div class="charts-grid">
-            <!-- Revenue Chart -->
-            <div class="chart-card">
-                <h2>Revenue Trends</h2>
-                <canvas id="revenueChart"></canvas>
-            </div>
-
-            <!-- Customer Growth Chart -->
-            <div class="chart-card">
-                <h2>Customer Growth</h2>
-                <canvas id="customerChart"></canvas>
-            </div>
-
-            <!-- Product Performance Chart -->
-            <div class="chart-card">
-                <h2>Top Products</h2>
-                <canvas id="productsChart"></canvas>
-            </div>
-        </div>
-
-        <?php if (WP_DEBUG): ?>
-        <div class="debug-section">
-            <h3>Debug Information</h3>
-            <div id="debug-output"></div>
-        </div>
-        <?php endif; ?>
     </div>
     <?php
 }
@@ -394,19 +331,37 @@ add_action('wp_ajax_generate_deck', 'sdg_generate_deck');
  */
 function sdg_get_dashboard_metrics() {
     try {
+        // Security checks
         check_ajax_referer('deck_generator_nonce', 'nonce');
         
+        // Check WooCommerce
+        if (!class_exists('WooCommerce')) {
+            throw new Exception('WooCommerce is not active');
+        }
+
+        // Basic metrics
         $data = array(
-            'financial' => sdg_get_financial_metrics(),
-            'growth' => sdg_get_growth_metrics(),
-            'customer' => sdg_get_customer_metrics(),
-            'charts' => sdg_get_chart_data()
+            'financial' => array(
+                'revenue_30_days' => '0.00',
+                'mrr_growth' => '0',
+                'customer_ltv' => '0.00'
+            ),
+            'growth' => array(
+                'yoy' => '0',
+                'customer_growth' => '0',
+                'market_share' => '0'
+            ),
+            'customer' => array(
+                'repeat_rate' => '0',
+                'avg_order_value' => sdg_get_average_order(),
+                'satisfaction' => '0'
+            )
         );
 
-        sdg_log('Dashboard data:', $data);
         wp_send_json_success($data);
+
     } catch (Exception $e) {
-        sdg_log('Error:', $e->getMessage());
+        error_log('Deck Generator Error: ' . $e->getMessage());
         wp_send_json_error($e->getMessage());
     }
 }
